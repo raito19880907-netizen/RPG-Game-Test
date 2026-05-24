@@ -363,6 +363,28 @@
       box-shadow: 0 28px 80px rgba(0,0,0,.55), inset 0 0 60px rgba(88,52,24,.28);
     }
 
+    .ending-image {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #06111a;
+      display: none;
+    }
+
+    .ending-frame.image-mode .ending-image {
+      display: block;
+    }
+
+    .ending-frame.image-mode .ending-scene,
+    .ending-frame.image-mode .ending-copy,
+    .ending-frame.image-mode .ending-page,
+    .ending-frame.image-mode .ending-complete {
+      display: none;
+    }
+
     .ending-frame::before {
       content: "";
       position: absolute;
@@ -823,6 +845,7 @@
 
   <section id="endingOverlay" class="ending-overlay" aria-label="三印開門結局過場">
     <div id="endingFrame" class="ending-frame">
+      <img id="endingImage" class="ending-image" src="ending-1.png" alt="三印開門 1/5" />
       <div id="endingScene" class="ending-scene scene-1">
         <div class="fuji"></div>
         <div class="torii"></div>
@@ -868,6 +891,7 @@
     const ENDING_SCENES = [
       {
         className: "scene-1",
+        image: "ending-1.png",
         title: "三印歸位",
         narrationJa: "三つの印は、旅人の歩みを覚えていた。",
         narrationZh: "三枚印章，記住了旅人的每一步。",
@@ -876,6 +900,7 @@
       },
       {
         className: "scene-2",
+        image: "ending-2.png",
         title: "門扉初啟",
         narrationJa: "門は力ではなく、学びによって開かれる。",
         narrationZh: "門並非因力量而開，而是因學習而啟。",
@@ -884,6 +909,7 @@
       },
       {
         className: "scene-3",
+        image: "ending-3.png",
         title: "絵巻の道",
         narrationJa: "終わりとは、絵巻を閉じることではない。",
         narrationZh: "所謂結束，並不是將繪卷合上。",
@@ -892,11 +918,21 @@
       },
       {
         className: "scene-4",
+        image: "ending-4.png",
         title: "新たな旅立ち",
         narrationJa: "名を残す者ではなく、歩みを重ねる者が、物語を進める。",
         narrationZh: "推動故事前進的，不是留下名字的人，而是不斷前行的人。",
         speechJa: "では、参ろう。まだ見ぬ道へ。",
         speechZh: "那麼，出發吧。前往尚未見過的道路。"
+      },
+      {
+        className: "scene-4",
+        image: "ending-5.png",
+        title: "冒險完成",
+        narrationJa: "あなたの絵巻は、ここからまた始まる。",
+        narrationZh: "你的繪卷，將從此再次展開。",
+        speechJa: "",
+        speechZh: ""
       }
     ];
     const $ = (id) => document.getElementById(id);
@@ -1154,20 +1190,27 @@
       $("endingComplete").classList.remove("show");
       $("endingCopy").style.display = "";
       $("endingPage").style.display = "";
+      $("endingFrame").classList.add("image-mode");
       $("endingOverlay").classList.add("show");
       renderEndingScene();
     }
 
     function renderEndingScene() {
       const scene = ENDING_SCENES[endingIndex];
+      $("endingFrame").classList.add("image-mode");
+      $("endingImage").src = scene.image;
+      $("endingImage").alt = `${scene.title} ${endingIndex + 1}/${ENDING_SCENES.length}`;
       $("endingScene").className = `ending-scene ${scene.className}`;
-      $("endingPage").textContent = `${endingIndex + 1}/4`;
+      $("endingPage").textContent = `${endingIndex + 1}/${ENDING_SCENES.length}`;
       $("endingTitle").textContent = scene.title;
       $("endingNarrationJa").textContent = scene.narrationJa;
       $("endingNarrationZh").textContent = scene.narrationZh;
       $("endingSpeech").innerHTML = scene.speechJa
         ? `「${scene.speechJa}」<br>${scene.speechZh}`
         : "";
+      if (endingIndex === ENDING_SCENES.length - 1) {
+        localStorage.setItem(ENDING_KEY, "true");
+      }
     }
 
     function advanceEnding() {
@@ -1175,8 +1218,6 @@
       if (endingIndex < ENDING_SCENES.length - 1) {
         endingIndex += 1;
         renderEndingScene();
-      } else {
-        showEndingComplete();
       }
     }
 
@@ -1200,6 +1241,7 @@
       updateProgress();
       closeGate();
       $("endingOverlay").classList.remove("show");
+      $("endingFrame").classList.add("image-mode");
       $("endingCopy").style.display = "";
       $("endingPage").style.display = "";
       $("endingComplete").classList.remove("show");
@@ -1211,6 +1253,9 @@
     $("clearBtn").addEventListener("click", clearProgress);
     $("againBtn").addEventListener("click", clearProgress);
     $("endingOverlay").addEventListener("click", advanceEnding);
+    $("endingImage").addEventListener("error", () => {
+      $("endingFrame").classList.remove("image-mode");
+    });
     $("endingAgainBtn").addEventListener("click", (event) => {
       event.stopPropagation();
       clearProgress();
