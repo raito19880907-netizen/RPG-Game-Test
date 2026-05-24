@@ -20,6 +20,7 @@
     body {
       margin: 0;
       min-height: 100vh;
+      min-height: 100dvh;
       color: var(--ink);
       font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
       background: #0f172a;
@@ -67,8 +68,9 @@
     .cover img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
+      background: #020617;
     }
 
     .map-screen {
@@ -77,7 +79,8 @@
       place-items: center;
       width: 100vw;
       height: 100vh;
-      padding: 18px;
+      height: 100dvh;
+      padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
       background:
         radial-gradient(circle at 20% 15%, rgba(56,189,248,.16), transparent 22rem),
         radial-gradient(circle at 85% 16%, rgba(250,204,21,.14), transparent 18rem),
@@ -86,8 +89,10 @@
 
     .map-wrap {
       position: relative;
-      width: min(100%, calc(100vh * var(--map-ratio, 1.777)));
-      height: min(100%, calc(100vw / var(--map-ratio, 1.777)));
+      width: min(100%, calc((100dvh - 20px) * var(--map-ratio, 1.777)));
+      height: min(100%, calc((100vw - 20px) / var(--map-ratio, 1.777)));
+      max-width: calc(100vw - 20px);
+      max-height: calc(100dvh - 20px);
       display: grid;
       place-items: center;
       filter: drop-shadow(0 24px 34px rgba(0,0,0,.38));
@@ -104,8 +109,8 @@
 
     .top-info {
       position: fixed;
-      right: 18px;
-      top: 18px;
+      right: max(10px, env(safe-area-inset-right));
+      top: max(10px, env(safe-area-inset-top));
       z-index: 10;
       display: flex;
       align-items: center;
@@ -138,6 +143,8 @@
       cursor: pointer;
       background: rgba(255,255,255,0);
       transition: box-shadow .18s ease, background .18s ease, transform .18s ease;
+      min-width: 44px;
+      min-height: 44px;
     }
 
     .hotspot:hover,
@@ -160,7 +167,7 @@
       z-index: 20;
       display: none;
       place-items: center;
-      padding: 18px;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
       background: rgba(2, 6, 23, .72);
       backdrop-filter: blur(4px);
     }
@@ -170,6 +177,7 @@
     .door {
       width: min(820px, 100%);
       max-height: min(92vh, 820px);
+      max-height: min(92dvh, 820px);
       overflow: auto;
       padding: 22px;
       border: 2px solid rgba(250,204,21,.55);
@@ -333,16 +341,71 @@
     }
 
     @media (max-width: 760px) {
-      .map-screen { padding: 8px; }
+      .map-screen { padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
+      .map-wrap {
+        width: min(100%, calc((100dvh - 12px) * var(--map-ratio, 1.777)));
+        height: min(100%, calc((100vw - 12px) / var(--map-ratio, 1.777)));
+        max-width: calc(100vw - 12px);
+        max-height: calc(100dvh - 12px);
+      }
       .top-info {
-        right: 10px;
-        top: 10px;
+        right: max(6px, env(safe-area-inset-right));
+        top: max(6px, env(safe-area-inset-top));
         gap: 6px;
         padding: 8px;
       }
       .owned { font-size: .92rem; }
       .clear-btn { min-height: 34px; padding: 0 9px; font-size: .88rem; }
       .slots { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 520px) {
+      .top-info {
+        left: max(6px, env(safe-area-inset-left));
+        right: max(6px, env(safe-area-inset-right));
+        justify-content: space-between;
+      }
+      .clear-btn {
+        max-width: 46%;
+        overflow-wrap: anywhere;
+      }
+      .door {
+        padding: 16px;
+      }
+      .door-head {
+        align-items: flex-start;
+      }
+      .slot {
+        min-height: 116px;
+      }
+      .badge {
+        width: 100%;
+        min-height: 54px;
+      }
+    }
+
+    @media (orientation: portrait) and (max-width: 900px) {
+      body { overflow: auto; }
+      .map-screen {
+        min-height: 100dvh;
+        height: auto;
+        align-content: center;
+        padding-top: max(76px, env(safe-area-inset-top));
+      }
+      .map-wrap {
+        width: min(100vw - 12px, 100%);
+        height: auto;
+        aspect-ratio: var(--map-ratio, 1.777);
+      }
+    }
+
+    @supports not (height: 100dvh) {
+      .map-screen { height: 100vh; }
+      .map-wrap {
+        width: min(100%, calc((100vh - 20px) * var(--map-ratio, 1.777)));
+        height: min(100%, calc((100vw - 20px) / var(--map-ratio, 1.777)));
+        max-height: calc(100vh - 20px);
+      }
     }
   </style>
 </head>
