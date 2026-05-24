@@ -1,0 +1,1050 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>打怪 RPG 進階版</title>
+  <style>
+    :root {
+      --bg: #101421;
+      --panel: #1d2638;
+      --panel2: #2b3448;
+      --ink: #f6f0dc;
+      --muted: #bfc7da;
+      --gold: #ffd75a;
+      --green: #41d37a;
+      --yellow: #ffd34d;
+      --red: #ff4e5f;
+      --blue: #5ab2ff;
+      --purple: #bd86ff;
+      --wood1: #7a4b27;
+      --wood2: #4d2c18;
+      --shadow: rgba(0, 0, 0, .38);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Noto Sans TC", "Yu Gothic", system-ui, sans-serif;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0 / 22px 22px,
+        linear-gradient(0deg, rgba(255,255,255,.018) 1px, transparent 1px) 0 0 / 22px 22px,
+        radial-gradient(circle at 18% 12%, rgba(90,178,255,.16), transparent 22rem),
+        radial-gradient(circle at 88% 18%, rgba(255,78,95,.14), transparent 22rem),
+        linear-gradient(145deg, #0d1020, #151d31 58%, #22182d);
+      overflow-x: hidden;
+    }
+
+    .map-back-btn {
+      position: fixed;
+      left: 16px;
+      top: 16px;
+      z-index: 35;
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 1px solid rgba(255,215,90,.55);
+      border-radius: var(--radius);
+      color: #fff7df;
+      background: rgba(16, 20, 33, .9);
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 8px 18px rgba(0,0,0,.3);
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      border-radius: var(--radius);
+      color: #fff;
+      background: linear-gradient(180deg, #4a8dff, #2654b8);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 0 rgba(0,0,0,.28), 0 12px 22px var(--shadow);
+      transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+    }
+
+    button:hover:not(:disabled), button:focus-visible:not(:disabled) {
+      transform: translateY(-2px);
+      filter: brightness(1.08);
+      outline: 2px solid rgba(255,215,90,.75);
+      outline-offset: 3px;
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 3px 0 rgba(0,0,0,.3), 0 8px 16px var(--shadow);
+    }
+
+    button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+      filter: grayscale(.35);
+    }
+
+    .page {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 3.4rem);
+      line-height: 1.05;
+      text-shadow: 0 4px 0 rgba(0,0,0,.35), 0 0 24px rgba(90,178,255,.2);
+    }
+
+    .title p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .coins {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 122px;
+      justify-content: center;
+      padding: 12px 16px;
+      border: 2px solid rgba(255,215,90,.85);
+      border-radius: var(--radius);
+      color: #2d2104;
+      background: linear-gradient(180deg, #fff0a7, #ffc13d);
+      font-size: 1.5rem;
+      font-weight: 900;
+      box-shadow: 0 8px 0 rgba(111,72,7,.35), 0 14px 26px var(--shadow);
+    }
+
+    .coins.bump { animation: coinBump .28s ease; }
+
+    .screen {
+      display: none;
+      min-height: 650px;
+      border: 2px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      background: rgba(21, 28, 46, .88);
+      box-shadow: 0 22px 52px var(--shadow), inset 0 0 44px rgba(255,255,255,.025);
+      overflow: hidden;
+    }
+
+    .screen.active { display: block; }
+
+    .loading-screen {
+      display: none;
+      place-items: center;
+      min-height: 650px;
+      text-align: center;
+    }
+
+    .loading-screen.active { display: grid; }
+
+    .loader {
+      width: 74px;
+      height: 74px;
+      margin: 0 auto 18px;
+      border: 8px solid rgba(255,255,255,.16);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    .battle-top {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 16px;
+      align-items: stretch;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.04));
+    }
+
+    .fighter-card {
+      min-height: 190px;
+      padding: 16px;
+      border: 2px solid rgba(255,255,255,.1);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, #263149, #1a2132);
+      box-shadow: inset 0 0 28px rgba(255,255,255,.035);
+    }
+
+    .fighter-name {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 1.25rem;
+      font-weight: 900;
+    }
+
+    .sprite {
+      display: grid;
+      place-items: center;
+      min-height: 88px;
+      font-size: clamp(4rem, 11vw, 6.6rem);
+      filter: drop-shadow(0 8px 0 rgba(0,0,0,.25));
+    }
+
+    .monster .sprite { animation: idle 1.7s ease-in-out infinite; }
+    .player .sprite { animation: bob 2s ease-in-out infinite; }
+
+    .vs {
+      display: grid;
+      place-items: center;
+      width: 82px;
+      color: var(--gold);
+      font-size: 2rem;
+      font-weight: 1000;
+      text-shadow: 0 4px 0 rgba(0,0,0,.38);
+    }
+
+    .hp-wrap {
+      display: grid;
+      gap: 6px;
+    }
+
+    .hp-meta {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: .92rem;
+      font-weight: 800;
+    }
+
+    .hp-bar {
+      position: relative;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,.16);
+      border-radius: 999px;
+      background: #0d111c;
+      overflow: hidden;
+    }
+
+    .hp-fill {
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--green);
+      transition: width .28s ease, background .2s ease;
+    }
+
+    .hp-fill.mid { background: var(--yellow); }
+    .hp-fill.low { background: var(--red); animation: blink .45s ease infinite alternate; }
+
+    .battle-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.18);
+    }
+
+    .stage {
+      color: #fff3b8;
+      font-weight: 900;
+      font-size: 1.08rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      font-weight: 800;
+    }
+
+    .question-box {
+      margin: 18px;
+      padding: 18px;
+      border: 2px solid rgba(90,178,255,.32);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(20, 35, 58, .95), rgba(13, 18, 31, .95));
+      box-shadow: inset 0 0 34px rgba(90,178,255,.055);
+    }
+
+    .question-label {
+      color: var(--gold);
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .question-text {
+      min-height: 58px;
+      color: #fff;
+      font-size: clamp(1.25rem, 2.7vw, 2rem);
+      font-weight: 900;
+      line-height: 1.45;
+    }
+
+    .answers {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .answer-btn {
+      min-height: 64px;
+      padding: 12px 14px;
+      color: #111827;
+      background: linear-gradient(180deg, #fff9dc, #f2c968);
+      text-align: left;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+
+    .answer-letter {
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      margin-right: 8px;
+      border-radius: 6px;
+      color: #fff;
+      background: #1d314b;
+    }
+
+    .message {
+      min-height: 48px;
+      padding: 0 18px 16px;
+      color: var(--gold);
+      font-size: 1.2rem;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .battle-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 0 18px 20px;
+    }
+
+    .bag-btn { background: linear-gradient(180deg, #52c77c, #237848); }
+
+    .effect-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+      display: none;
+      place-items: center;
+      font-size: clamp(2.8rem, 10vw, 7rem);
+      font-weight: 1000;
+      text-shadow: 0 7px 0 rgba(0,0,0,.35), 0 0 28px currentColor;
+    }
+
+    .effect-layer.show { display: grid; }
+    .effect-layer.critical { color: var(--red); animation: criticalFlash .5s ease; }
+    .flash-good { animation: flashGood .2s ease; }
+    .shake-bad { animation: shakeBad .3s ease; }
+
+    .shop-screen {
+      padding: 20px;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.045) 2px, transparent 2px) 0 0 / 38px 100%,
+        linear-gradient(180deg, var(--wood1), var(--wood2));
+    }
+
+    .shop-head, .result-head {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .shop-head h2, .result-head h2 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      text-shadow: 0 4px 0 rgba(0,0,0,.35);
+    }
+
+    .shop-head p, .result-head p { color: #fff0bf; line-height: 1.6; }
+
+    .shop-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .shop-card {
+      padding: 16px;
+      border: 3px solid rgba(255,228,137,.38);
+      border-radius: var(--radius);
+      background: rgba(39, 24, 13, .62);
+      box-shadow: inset 0 0 30px rgba(255,255,255,.04), 0 12px 24px rgba(0,0,0,.24);
+    }
+
+    .item-icon { font-size: 3rem; }
+    .shop-card h3 { margin: 8px 0; font-size: 1.3rem; }
+    .shop-card p { min-height: 56px; color: #f5dfb5; line-height: 1.55; }
+    .price { color: var(--gold); font-size: 1.3rem; font-weight: 1000; }
+    .buy-btn { width: 100%; margin-top: 12px; background: linear-gradient(180deg, #ffbd4a, #b66d13); }
+    .continue-btn { display: block; min-width: 220px; margin: 16px auto 0; background: linear-gradient(180deg, #5ab2ff, #2654b8); }
+
+    .inventory-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0,0,0,.58);
+      backdrop-filter: blur(3px);
+    }
+
+    .inventory-modal.show { display: grid; }
+
+    .inventory-panel {
+      width: min(520px, 100%);
+      padding: 18px;
+      border: 2px solid rgba(255,215,90,.55);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, #263149, #151c2d);
+      box-shadow: 0 24px 54px rgba(0,0,0,.45);
+    }
+
+    .inventory-panel h2 { margin: 0 0 14px; }
+
+    .inventory-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.05);
+      margin-bottom: 10px;
+    }
+
+    .close-btn { width: 100%; margin-top: 8px; background: linear-gradient(180deg, #58657e, #30394b); }
+
+    .result-screen, .gameover-screen {
+      display: none;
+      place-items: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .result-screen.active, .gameover-screen.active { display: grid; }
+
+    .result-card, .gameover-card {
+      width: min(620px, 100%);
+      padding: 28px;
+      border-radius: var(--radius);
+      box-shadow: 0 24px 54px rgba(0,0,0,.42);
+    }
+
+    .result-card {
+      border: 2px solid rgba(255,215,90,.75);
+      background: linear-gradient(180deg, #263149, #161d30);
+    }
+
+    .gameover-screen { background: radial-gradient(circle, rgba(255,78,95,.28), rgba(80,10,18,.82)); }
+    .gameover-card { border: 2px solid rgba(255,255,255,.2); background: rgba(70, 10, 18, .86); }
+    .gameover-card h2 { color: #fff; font-size: clamp(2.5rem, 8vw, 5rem); margin: 0 0 12px; }
+
+    .result-list {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+      text-align: left;
+    }
+
+    .result-item {
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.06);
+      font-size: 1.12rem;
+      font-weight: 800;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes idle { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
+    @keyframes blink { from { filter: brightness(1); } to { filter: brightness(1.45); } }
+    @keyframes coinBump { 0%,100% { transform: scale(1); } 45% { transform: scale(1.14) rotate(-2deg); } }
+    @keyframes flashGood { 0%,100% { box-shadow: 0 22px 52px var(--shadow); } 50% { box-shadow: 0 0 0 9999px rgba(65,211,122,.14), 0 0 44px rgba(65,211,122,.52); } }
+    @keyframes shakeBad { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-7px); } 80% { transform: translateX(7px); } }
+    @keyframes criticalFlash { 0%,100% { opacity: 0; transform: scale(.86); } 35%,70% { opacity: 1; transform: scale(1.08); } }
+
+    @media (max-width: 780px) {
+      header { align-items: stretch; flex-direction: column; }
+      .coins { align-self: flex-end; }
+      .battle-top { grid-template-columns: 1fr; }
+      .vs { width: auto; min-height: 40px; }
+      .answers { grid-template-columns: 1fr; }
+      .shop-grid { grid-template-columns: 1fr; }
+      .screen, .loading-screen { min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <a class="map-back-btn" href="../大冒險地圖/index.html">← 回到大地圖</a>
+  <div class="page">
+    <header>
+      <div class="title">
+        <h1>打怪 RPG 進階版</h1>
+        <p>答題攻擊怪物、賺金幣、買道具，挑戰 5 關魔王戰。</p>
+      </div>
+      <div id="coinBox" class="coins">💰 <span id="coins">0</span></div>
+    </header>
+
+    <section id="loadingScreen" class="screen loading-screen active">
+      <div>
+        <div class="loader"></div>
+        <h2>題庫読み込み中...</h2>
+        <p id="loadingText">Google Sheets CSV から問題を取得しています。</p>
+      </div>
+    </section>
+
+    <main id="battleScreen" class="screen">
+      <section class="battle-top">
+        <article class="fighter-card player">
+          <div class="fighter-name"><span>🧙 巫師</span><span>PLAYER</span></div>
+          <div class="sprite">🧙</div>
+          <div class="hp-wrap">
+            <div class="hp-meta"><span>HP</span><span id="playerHpText">100 / 100</span></div>
+            <div class="hp-bar"><div id="playerHpFill" class="hp-fill"></div></div>
+          </div>
+        </article>
+        <div class="vs">VS</div>
+        <article class="fighter-card monster">
+          <div class="fighter-name"><span id="monsterName">🐺 野狼</span><span id="stageText">第 1 關</span></div>
+          <div id="monsterSprite" class="sprite">🐺</div>
+          <div class="hp-wrap">
+            <div class="hp-meta"><span>HP</span><span id="monsterHpText">100 / 100</span></div>
+            <div class="hp-bar"><div id="monsterHpFill" class="hp-fill"></div></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="battle-info">
+        <div id="battleStage" class="stage">第 1 關</div>
+        <div class="status-pill">📄 題庫 <span id="sourceStatus">讀取中</span></div>
+        <div class="status-pill">✅ 答對 <span id="correctCount">0</span></div>
+        <div class="status-pill">🧪 藥水 <span id="potionCount">0</span></div>
+        <div class="status-pill">💎 水晶 <span id="crystalCount">0</span></div>
+        <div class="status-pill">🛡 救命符 <span id="charmCount">0</span></div>
+      </section>
+
+      <section class="question-box" id="questionBox">
+        <div class="question-label">怪物の問題</div>
+        <div id="questionText" class="question-text"></div>
+        <div id="answers" class="answers"></div>
+      </section>
+
+      <div id="message" class="message"></div>
+      <div class="battle-actions">
+        <button id="bagBtn" class="bag-btn" type="button">🎒 背包</button>
+      </div>
+    </main>
+
+    <section id="shopScreen" class="screen shop-screen">
+      <div class="shop-head">
+        <h2>🪵 商店</h2>
+        <p id="shopMessage">關卡突破！準備下一場戰鬥前，可以購買道具。</p>
+      </div>
+      <div class="shop-grid">
+        <article class="shop-card">
+          <div class="item-icon">🧪</div>
+          <h3>紅藥水</h3>
+          <p>補 50 HP。戰鬥中可從背包使用。</p>
+          <div class="price">30 金幣</div>
+          <button class="buy-btn" data-item="potion" type="button">購買</button>
+        </article>
+        <article class="shop-card">
+          <div class="item-icon">💎</div>
+          <h3>攻擊水晶</h3>
+          <p>下一題答對暴擊，怪物扣 50 HP。</p>
+          <div class="price">40 金幣</div>
+          <button class="buy-btn" data-item="crystal" type="button">購買</button>
+        </article>
+        <article class="shop-card">
+          <div class="item-icon">🛡</div>
+          <h3>救命符</h3>
+          <p>HP 歸零時自動復活，剩 1 HP。</p>
+          <div class="price">80 金幣</div>
+          <button class="buy-btn" data-item="charm" type="button">購買</button>
+        </article>
+      </div>
+      <button id="continueBtn" class="continue-btn" type="button">前往下一關</button>
+    </section>
+
+    <section id="resultScreen" class="screen result-screen">
+      <div class="result-card">
+        <div class="result-head">
+          <h2>クリア！よくできました！</h2>
+          <p>5 隻怪物全部擊破。</p>
+        </div>
+        <div class="result-list">
+          <div class="result-item">答對題數：<span id="finalCorrect">0</span></div>
+          <div class="result-item">剩餘金幣：<span id="finalCoins">0</span></div>
+          <div class="result-item">用了幾瓶藥水：<span id="finalPotions">0</span></div>
+        </div>
+        <button id="restartBtn" type="button">重新開始</button>
+      </div>
+    </section>
+
+    <section id="gameoverScreen" class="screen gameover-screen">
+      <div class="gameover-card">
+        <h2>GAME OVER</h2>
+        <p>HP 1 又被擊倒，挑戰失敗。</p>
+        <button id="gameoverRestartBtn" type="button">重新開始</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="inventoryModal" class="inventory-modal" role="dialog" aria-modal="true" aria-labelledby="inventoryTitle">
+    <div class="inventory-panel">
+      <h2 id="inventoryTitle">🎒 背包</h2>
+      <div class="inventory-row">
+        <div>🧪 紅藥水 x <span id="bagPotionCount">0</span><br><small>補 50 HP，最多 100。</small></div>
+        <button id="usePotionBtn" type="button">使用</button>
+      </div>
+      <div class="inventory-row"><div>💎 攻擊水晶 x <span id="bagCrystalCount">0</span></div><button type="button" disabled>自動使用</button></div>
+      <div class="inventory-row"><div>🛡 救命符 x <span id="bagCharmCount">0</span></div><button type="button" disabled>自動使用</button></div>
+      <button id="closeBagBtn" class="close-btn" type="button">關閉</button>
+    </div>
+  </div>
+
+  <div id="effectLayer" class="effect-layer">CRITICAL!</div>
+
+  <script>
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJFVMvXcl3YYeBMnpCRe0lkpWDncFxjB8sQxMyOrb76sEPDNbqf3pP6-G27v0MRZzm7FsfJ5rsvxav/pub?output=csv";
+
+    const FALLBACK_QUESTIONS = [
+      { question: "行きます", choices: ["行って", "行きて", "行いて", "行て"], answer: "行って" },
+      { question: "飲みます", choices: ["飲んで", "飲みて", "飲って", "飲いて"], answer: "飲んで" },
+      { question: "書きます", choices: ["書いて", "書きて", "書って", "書んで"], answer: "書いて" },
+      { question: "話します", choices: ["話して", "話って", "話いて", "話んで"], answer: "話して" },
+      { question: "買います", choices: ["買って", "買いて", "買いで", "買んで"], answer: "買って" },
+      { question: "食べます", choices: ["食べて", "食べって", "食べいて", "食んで"], answer: "食べて" },
+      { question: "見ます", choices: ["見て", "見って", "見いて", "見んで"], answer: "見て" },
+      { question: "起きます", choices: ["起きて", "起きって", "起いて", "起んで"], answer: "起きて" },
+      { question: "借ります", choices: ["借りて", "借って", "借いて", "借んで"], answer: "借りて" },
+      { question: "寝ます", choices: ["寝て", "寝って", "寝いて", "寝んで"], answer: "寝て" },
+      { question: "します", choices: ["して", "しって", "しんで", "しえて"], answer: "して" },
+      { question: "来ます", choices: ["来て", "来って", "来いて", "来んで"], answer: "来て" },
+      { question: "勉強します", choices: ["勉強して", "勉強しって", "勉強しんで", "勉強しえて"], answer: "勉強して" },
+      { question: "散歩します", choices: ["散歩して", "散歩しって", "散歩しんで", "散歩いて"], answer: "散歩して" },
+      { question: "持って来ます", choices: ["持って来って", "持って来いて", "持って来て", "持って来んで"], answer: "持って来って" }
+    ];
+
+    const MONSTERS = [
+      { icon: "🐺", name: "野狼" },
+      { icon: "🦂", name: "毒蠍" },
+      { icon: "👹", name: "惡鬼" },
+      { icon: "🐲", name: "巨龍" },
+      { icon: "👑", name: "魔王" }
+    ];
+
+    const SHOP = {
+      potion: { price: 30, label: "紅藥水" },
+      crystal: { price: 40, label: "攻擊水晶" },
+      charm: { price: 80, label: "救命符" }
+    };
+
+    const state = {
+      questions: [],
+      stage: 0,
+      playerHp: 100,
+      monsterHp: 100,
+      coins: 0,
+      correct: 0,
+      potionUsed: 0,
+      inventory: { potion: 0, crystal: 0, charm: 0 },
+      sourceText: "讀取中",
+      currentQuestion: null,
+      locked: false,
+      revivedThisStageAtOne: false,
+      restartedAtOne: false
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const screens = ["loadingScreen", "battleScreen", "shopScreen", "resultScreen", "gameoverScreen"];
+
+    function showScreen(id) {
+      screens.forEach((screenId) => $(screenId).classList.toggle("active", screenId === id));
+    }
+
+    function shuffle(items) {
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let cell = "";
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const next = text[i + 1];
+        if (char === '"' && inQuotes && next === '"') {
+          cell += '"';
+          i++;
+        } else if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === "," && !inQuotes) {
+          row.push(cell.trim());
+          cell = "";
+        } else if ((char === "\n" || char === "\r") && !inQuotes) {
+          if (char === "\r" && next === "\n") i++;
+          row.push(cell.trim());
+          if (row.some(Boolean)) rows.push(row);
+          row = [];
+          cell = "";
+        } else {
+          cell += char;
+        }
+      }
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      return rows;
+    }
+
+    function normalizeQuestions(rows) {
+      return rows.slice(1).map((row) => {
+        const question = cleanCell(row[0]);
+        const options = [row[1], row[2], row[3], row[4]]
+          .map((value, index) => ({
+            label: String.fromCharCode(65 + index),
+            text: cleanCell(value)
+          }))
+          .filter((option) => option.text && option.text !== "空");
+
+        // 本遊戲題庫規則：CSV 的 A 欄固定為正確答案，B/C/D 為干擾選項。
+        const answer = cleanCell(row[1]);
+
+        return { question, choices: options.map((option) => option.text), answer };
+      }).filter((item) => item.question && item.answer && item.choices.includes(item.answer) && item.choices.length >= 2);
+    }
+
+    function cleanCell(value) {
+      return String(value || "").replace(/^\uFEFF/, "").trim();
+    }
+
+    async function fetchCsvText() {
+      const separator = CSV_URL.includes("?") ? "&" : "?";
+      const urls = [
+        `${CSV_URL}${separator}v=${Date.now()}`,
+        CSV_URL
+      ];
+
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          const response = await fetch(url, {
+            cache: "no-store",
+            credentials: "omit",
+            mode: "cors"
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return await response.text();
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("CSV fetch failed");
+    }
+
+    async function loadQuestions() {
+      showScreen("loadingScreen");
+      try {
+        const text = await fetchCsvText();
+        const loaded = normalizeQuestions(parseCsv(text));
+        if (loaded.length < 5) throw new Error("題數不足");
+        state.questions = loaded;
+        state.sourceText = `Google Sheets（${loaded.length} 題）`;
+        $("loadingText").textContent = `Google Sheets 読み込み完了：${loaded.length} 題`;
+      } catch (error) {
+        state.questions = FALLBACK_QUESTIONS;
+        state.sourceText = "Google Sheets 題庫備援";
+        $("loadingText").textContent = `線上 CSV 暫時無法讀取，已使用同一份 Google Sheets 題庫備援。${error.message ? "原因：" + error.message : ""}`;
+      }
+      window.setTimeout(startGame, 450);
+    }
+
+    function startGame() {
+      state.stage = 0;
+      state.playerHp = 100;
+      state.monsterHp = 100;
+      state.coins = 0;
+      state.correct = 0;
+      state.potionUsed = 0;
+      state.inventory = { potion: 0, crystal: 0, charm: 0 };
+      state.locked = false;
+      state.revivedThisStageAtOne = false;
+      state.restartedAtOne = false;
+      startStage(0);
+    }
+
+    function startStage(stageIndex, keepHp = false) {
+      state.stage = stageIndex;
+      state.monsterHp = 100;
+      state.locked = false;
+      state.revivedThisStageAtOne = false;
+      if (!keepHp) {
+        state.playerHp = Math.max(state.playerHp, 1);
+        state.restartedAtOne = false;
+      }
+      showScreen("battleScreen");
+      renderBattle();
+      nextQuestion();
+    }
+
+    function renderBattle() {
+      const monster = MONSTERS[state.stage];
+      $("monsterName").textContent = `${monster.icon} ${monster.name}`;
+      $("monsterSprite").textContent = monster.icon;
+      $("stageText").textContent = `第 ${state.stage + 1} 關`;
+      $("battleStage").textContent = `第 ${state.stage + 1} / 5 關：${monster.name}`;
+      updateHp("player", state.playerHp);
+      updateHp("monster", state.monsterHp);
+      updateCounts();
+      updateCoins();
+      $("message").textContent = "";
+    }
+
+    function updateHp(who, hp) {
+      const fill = $(`${who}HpFill`);
+      const text = $(`${who}HpText`);
+      const pct = Math.max(0, Math.min(100, hp));
+      fill.style.width = `${pct}%`;
+      fill.classList.toggle("mid", pct < 50 && pct >= 20);
+      fill.classList.toggle("low", pct < 20);
+      text.textContent = `${Math.max(0, hp)} / 100`;
+    }
+
+    function updateCounts() {
+      $("correctCount").textContent = state.correct;
+      $("potionCount").textContent = state.inventory.potion;
+      $("crystalCount").textContent = state.inventory.crystal;
+      $("charmCount").textContent = state.inventory.charm;
+      $("sourceStatus").textContent = state.sourceText;
+      $("bagPotionCount").textContent = state.inventory.potion;
+      $("bagCrystalCount").textContent = state.inventory.crystal;
+      $("bagCharmCount").textContent = state.inventory.charm;
+      $("usePotionBtn").disabled = state.inventory.potion <= 0 || state.playerHp >= 100 || $("battleScreen").classList.contains("active") === false;
+    }
+
+    function updateCoins(bump = false) {
+      $("coins").textContent = state.coins;
+      if (bump) {
+        const box = $("coinBox");
+        box.classList.remove("bump");
+        void box.offsetWidth;
+        box.classList.add("bump");
+      }
+      document.querySelectorAll(".buy-btn").forEach((button) => {
+        button.disabled = state.coins < SHOP[button.dataset.item].price;
+      });
+    }
+
+    function nextQuestion() {
+      state.locked = false;
+      const source = state.questions[Math.floor(Math.random() * state.questions.length)];
+      state.currentQuestion = { ...source, choices: shuffle(source.choices) };
+      $("questionText").textContent = `請選出正確答案：${source.question}`;
+      $("answers").innerHTML = "";
+      state.currentQuestion.choices.forEach((choice, index) => {
+        const button = document.createElement("button");
+        button.className = "answer-btn";
+        button.type = "button";
+        button.innerHTML = `<span class="answer-letter">${String.fromCharCode(65 + index)}</span>${escapeHtml(choice)}`;
+        button.addEventListener("click", () => answer(choice));
+        $("answers").appendChild(button);
+      });
+      $("message").textContent = "";
+    }
+
+    function answer(choice) {
+      if (state.locked) return;
+      state.locked = true;
+      const correct = choice === state.currentQuestion.answer;
+      if (correct) handleCorrect();
+      else handleWrong();
+    }
+
+    function handleCorrect() {
+      state.correct += 1;
+      addCoins(5);
+      const hasCrystal = state.inventory.crystal > 0;
+      const damage = hasCrystal ? 50 : 25;
+      if (hasCrystal) {
+        state.inventory.crystal -= 1;
+        showCritical();
+      }
+      state.monsterHp = Math.max(0, state.monsterHp - damage);
+      $("message").textContent = hasCrystal ? `正解！ CRITICAL! 怪物 -${damage} HP，獲得 5 金幣。` : "正解！怪物 -25 HP，獲得 5 金幣。";
+      flashBattle("flash-good");
+      renderBattle();
+      if (state.monsterHp <= 0) {
+        window.setTimeout(defeatMonster, 650);
+      } else {
+        window.setTimeout(nextQuestion, 650);
+      }
+    }
+
+    function handleWrong() {
+      state.playerHp = Math.max(0, state.playerHp - 25);
+      $("message").textContent = `答錯！正確答案：${state.currentQuestion.answer}`;
+      flashBattle("shake-bad");
+      renderBattle();
+      window.setTimeout(() => {
+        if (state.playerHp <= 0) handleDeath();
+        else nextQuestion();
+      }, 2000);
+    }
+
+    function handleDeath() {
+      if (state.inventory.charm > 0) {
+        state.inventory.charm -= 1;
+        state.playerHp = 1;
+        $("message").textContent = "🛡 救命符發動！HP 回到 1，繼續戰鬥。";
+        renderBattle();
+        window.setTimeout(nextQuestion, 1200);
+        return;
+      }
+
+      if (!state.restartedAtOne) {
+        state.restartedAtOne = true;
+        state.playerHp = 1;
+        $("message").textContent = "HP 歸零！沒有救命符，重來該關，HP 設為 1。";
+        renderBattle();
+        window.setTimeout(() => startStage(state.stage, true), 1300);
+        return;
+      }
+
+      showScreen("gameoverScreen");
+    }
+
+    function defeatMonster() {
+      const drop = randomInt(20, 50);
+      addCoins(drop);
+      if (state.stage === MONSTERS.length - 1) {
+        showResult();
+      } else {
+        $("shopMessage").textContent = `${MONSTERS[state.stage].name} 擊破！額外獲得 ${drop} 金幣。`;
+        showScreen("shopScreen");
+        updateCounts();
+        updateCoins();
+      }
+    }
+
+    function addCoins(amount) {
+      state.coins += amount;
+      updateCoins(true);
+    }
+
+    function buyItem(item) {
+      const data = SHOP[item];
+      if (state.coins < data.price) return;
+      state.coins -= data.price;
+      state.inventory[item] += 1;
+      $("shopMessage").textContent = `買到了 ${data.label}！`;
+      updateCounts();
+      updateCoins(true);
+    }
+
+    function continueFromShop() {
+      startStage(state.stage + 1);
+    }
+
+    function openBag() {
+      updateCounts();
+      $("inventoryModal").classList.add("show");
+    }
+
+    function closeBag() {
+      $("inventoryModal").classList.remove("show");
+    }
+
+    function usePotion() {
+      if (state.inventory.potion <= 0 || state.playerHp >= 100) return;
+      state.inventory.potion -= 1;
+      state.potionUsed += 1;
+      state.playerHp = Math.min(100, state.playerHp + 50);
+      $("message").textContent = "🧪 使用紅藥水，HP +50。";
+      closeBag();
+      renderBattle();
+    }
+
+    function showResult() {
+      localStorage.setItem("cert_warrior", "true");
+      $("finalCorrect").textContent = state.correct;
+      $("finalCoins").textContent = state.coins;
+      $("finalPotions").textContent = state.potionUsed;
+      showScreen("resultScreen");
+    }
+
+    function showCritical() {
+      const layer = $("effectLayer");
+      layer.className = "effect-layer show critical";
+      window.setTimeout(() => { layer.className = "effect-layer"; }, 520);
+    }
+
+    function flashBattle(className) {
+      const screen = $("battleScreen");
+      screen.classList.remove(className);
+      void screen.offsetWidth;
+      screen.classList.add(className);
+      window.setTimeout(() => screen.classList.remove(className), className === "shake-bad" ? 320 : 220);
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>'"]/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+      }[char]));
+    }
+
+    document.querySelectorAll(".buy-btn").forEach((button) => {
+      button.addEventListener("click", () => buyItem(button.dataset.item));
+    });
+    $("continueBtn").addEventListener("click", continueFromShop);
+    $("bagBtn").addEventListener("click", openBag);
+    $("closeBagBtn").addEventListener("click", closeBag);
+    $("inventoryModal").addEventListener("click", (event) => {
+      if (event.target.id === "inventoryModal") closeBag();
+    });
+    $("usePotionBtn").addEventListener("click", usePotion);
+    $("restartBtn").addEventListener("click", startGame);
+    $("gameoverRestartBtn").addEventListener("click", startGame);
+
+    loadQuestions();
+  </script>
+</body>
+</html>

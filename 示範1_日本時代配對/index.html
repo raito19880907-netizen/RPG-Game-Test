@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日本時代配對ゲーム</title>
+  <style>
+    /* =============================================
+       Base Reset & Body
+    ============================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: "Noto Serif JP", "Noto Serif TC", "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background-color: #0d1521;
+      /* 和紙質感：使用 CSS 漸層與網格模擬，不依賴外部圖片 */
+      background-image:
+        radial-gradient(ellipse at 25% 15%, rgba(26,42,74,0.8) 0%, transparent 55%),
+        radial-gradient(ellipse at 75% 85%, rgba(26,21,0,0.8) 0%, transparent 55%),
+        repeating-linear-gradient(0deg,  transparent, transparent 38px, rgba(255,255,255,0.007) 38px, rgba(255,255,255,0.007) 39px),
+        repeating-linear-gradient(90deg, transparent, transparent 58px, rgba(255,255,255,0.005) 58px, rgba(255,255,255,0.005) 59px);
+      color: #f0e6d3;
+      overflow-x: hidden;
+    }
+
+    /* =============================================
+       Header
+    ============================================= */
+    header {
+      padding: 16px 20px 0;
+      text-align: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 100%);
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-size: clamp(1.25rem, 4vw, 1.95rem);
+      color: #c9a84c;
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 28px rgba(201,168,76,0.65), 0 2px 4px rgba(0,0,0,0.9);
+      line-height: 1.2;
+    }
+
+    .header-subtitle {
+      margin-top: 5px;
+      font-size: clamp(0.65rem, 1.8vw, 0.85rem);
+      color: #9a8a68;
+      letter-spacing: 0.04em;
+    }
+
+    /* 金色分隔線 */
+    .gold-line {
+      height: 2px;
+      background: linear-gradient(to right, transparent, #8b6914, #c9a84c, #e8d5a3, #c9a84c, #8b6914, transparent);
+      margin-top: 12px;
+    }
+
+    /* =============================================
+       Stats Bar
+    ============================================= */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 28px;
+      padding: 7px 20px;
+      background: rgba(0,0,0,0.38);
+      border-bottom: 1px solid rgba(74,55,40,0.55);
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .stat-item { color: #b0a080; }
+    .stat-item strong { color: #e8d5a3; font-size: 1.08em; }
+
+    /* =============================================
+       Instructions
+    ============================================= */
+    .instructions {
+      padding: 5px 16px;
+      text-align: center;
+      font-size: 0.72rem;
+      color: #706050;
+      background: rgba(0,0,0,0.22);
+      border-bottom: 1px solid rgba(74,55,40,0.3);
+      flex-shrink: 0;
+    }
+
+    /* =============================================
+       Main Game Area — 桌機：左右並排 / 手機：上下堆疊
+    ============================================= */
+    .game-area {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* 左側：時代卡格 */
+    .periods-section {
+      flex: 1.65;
+      min-width: 0;
+      padding: 13px 12px 13px 15px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(201,168,76,0.28);
+    }
+
+    /* 右側：事件卡 */
+    .events-section {
+      flex: 1;
+      min-width: 170px;
+      max-width: 255px;
+      padding: 13px 13px 13px 11px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 自訂捲軸 */
+    .periods-section::-webkit-scrollbar,
+    .events-pool::-webkit-scrollbar { width: 4px; }
+    .periods-section::-webkit-scrollbar-track,
+    .events-pool::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); }
+    .periods-section::-webkit-scrollbar-thumb,
+    .events-pool::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.38); border-radius: 2px; }
+
+    .section-title {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #c9a84c;
+      letter-spacing: 0.16em;
+      margin-bottom: 11px;
+      opacity: 0.88;
+    }
+
+    /* =============================================
+       Periods Grid（2 欄）
+    ============================================= */
+    .periods-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 11px;
+    }
+
+    /* =============================================
+       Period Card — 米白和紙感
+    ============================================= */
+    .period-card {
+      background: linear-gradient(160deg, #f8f3e9 0%, #ede4cc 100%);
+      border: 2px solid #b89030;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.55);
+      position: relative;
+    }
+
+    /* 頂部金色裝飾條 */
+    .period-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(to right, #7a5e12, #c9a84c, #e8d5a3, #c9a84c, #7a5e12);
+    }
+
+    .period-header {
+      padding: 11px 10px 8px;
+      text-align: center;
+      border-bottom: 1px dashed rgba(180,140,70,0.5);
+    }
+
+    .period-name-ja {
+      font-size: clamp(0.9rem, 2vw, 1.18rem);
+      font-weight: bold;
+      color: #2c1808;
+      letter-spacing: 0.07em;
+      line-height: 1.2;
+    }
+
+    .period-name-zh {
+      font-size: 0.65rem;
+      color: #7a5838;
+      margin-top: 2px;
+    }
+
+    .period-hint {
+      font-size: 0.58rem;
+      color: #9a7050;
+      margin-top: 4px;
+      font-style: italic;
+      line-height: 1.45;
+    }
+
+    /* =============================================
+       Drop Zone — 掉落區
+    ============================================= */
+    .drop-zone {
+      min-height: 52px;
+      margin: 7px;
+      border: 1.5px dashed rgba(185,145,40,0.45);
+      border-radius: 6px;
+      padding: 5px;
+      background: rgba(201,168,76,0.04);
+      transition: background 0.18s ease, border-color 0.18s ease;
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-content: flex-start;
+    }
+
+    .drop-zone.drag-over {
+      background: rgba(201,168,76,0.16);
+      border-color: #c9a84c;
+      border-style: solid;
+    }
+
+    .drop-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      color: rgba(185,145,40,0.48);
+      pointer-events: none;
+      text-align: center;
+    }
+
+    /* =============================================
+       Placed Card — 正確配對後的縮圖卡片
+    ============================================= */
+    .placed-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: linear-gradient(135deg, #163d16, #0c2e0c);
+      border: 1px solid #3a863a;
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 0.58rem;
+      color: #98da98;
+      white-space: nowrap;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.45);
+      animation: popIn 0.25s ease;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.6); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .placed-icon { font-size: 0.72rem; }
+    .placed-check { color: #5cb85c; font-size: 0.6rem; margin-left: 2px; }
+
+    /* =============================================
+       Events Pool
+    ============================================= */
+    .events-pool {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding-right: 2px;
+    }
+
+    /* =============================================
+       Event Card — 深色朱紅邊框
+    ============================================= */
+    .event-card {
+      background: linear-gradient(150deg, #1c0a00, #301800);
+      border: 2px solid #9e1f0f;
+      border-radius: 7px;
+      padding: 9px 11px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+      user-select: none;
+      -webkit-user-select: none;
+      box-shadow: 0 2px 7px rgba(0,0,0,0.65);
+      flex-shrink: 0;
+    }
+
+    /* hover：微微放大 + 金色邊框亮起 */
+    .event-card:not(.correct):hover {
+      transform: translateX(-5px) scale(1.02);
+      border-color: #c9a84c;
+      box-shadow: 0 4px 18px rgba(201,168,76,0.38);
+    }
+
+    .event-card.dragging {
+      opacity: 0.42;
+      transform: scale(0.92);
+      cursor: grabbing;
+    }
+
+    /* 正確配對後從右側池隱藏 */
+    .event-card.correct { display: none; }
+
+    /* 錯誤動畫：震動 + 紅光 */
+    .event-card.shake      { animation: shake      0.36s ease-in-out; }
+    .event-card.flash-error { animation: flashError 0.36s ease-in-out; }
+
+    @keyframes shake {
+      0%   { transform: translateX(0); }
+      12%  { transform: translateX(-10px) rotate(-1.5deg); }
+      25%  { transform: translateX(10px)  rotate(1.5deg); }
+      37%  { transform: translateX(-8px); }
+      50%  { transform: translateX(8px); }
+      62%  { transform: translateX(-4px); }
+      75%  { transform: translateX(4px); }
+      87%  { transform: translateX(-2px); }
+      100% { transform: translateX(0); }
+    }
+
+    @keyframes flashError {
+      0%, 100% { border-color: #9e1f0f; background: linear-gradient(150deg,#1c0a00,#301800); box-shadow: 0 2px 7px rgba(0,0,0,0.65); }
+      30%, 70%  { border-color: #ff3333; background: linear-gradient(150deg,#420000,#5e0000); box-shadow: 0 0 22px rgba(255,40,40,0.75); }
+    }
+
+    .event-icon {
+      font-size: 1.38rem;
+      min-width: 26px;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .event-text-ja {
+      font-size: 0.8rem;
+      color: #f0e6d3;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      line-height: 1.3;
+    }
+
+    .event-text-zh {
+      font-size: 0.6rem;
+      color: #887060;
+      margin-top: 2px;
+    }
+
+    /* =============================================
+       Feedback Toast — 浮動提示
+    ============================================= */
+    .feedback-toast {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-18px);
+      padding: 9px 24px;
+      border-radius: 22px;
+      font-size: 0.92rem;
+      font-weight: bold;
+      letter-spacing: 0.06em;
+      opacity: 0;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+      z-index: 600;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .feedback-toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .feedback-toast.type-correct {
+      background: linear-gradient(135deg, #174d17, #1e621e);
+      border: 2px solid #48b448;
+      color: #9af09a;
+      box-shadow: 0 0 22px rgba(72,180,72,0.55);
+    }
+
+    .feedback-toast.type-wrong {
+      background: linear-gradient(135deg, #5c1818, #7a2020);
+      border: 2px solid #cc4040;
+      color: #f0a0a0;
+      box-shadow: 0 0 22px rgba(204,64,64,0.55);
+    }
+
+    /* =============================================
+       Victory Overlay — 過關彈窗
+    ============================================= */
+    .victory-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.55s ease;
+    }
+
+    .victory-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .victory-box {
+      background: linear-gradient(150deg, #1c1200, #301e00, #1a0a00);
+      border: 3px solid #c9a84c;
+      border-radius: 16px;
+      padding: 38px 46px;
+      text-align: center;
+      max-width: min(90vw, 420px);
+      box-shadow:
+        0 0 50px rgba(201,168,76,0.65),
+        0 0 100px rgba(201,168,76,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      animation: victoryGlow 2s ease-in-out infinite;
+    }
+
+    @keyframes victoryGlow {
+      0%, 100% { box-shadow: 0 0 45px rgba(201,168,76,0.55), 0 0 90px rgba(201,168,76,0.28); }
+      50%       { box-shadow: 0 0 75px rgba(201,168,76,0.95), 0 0 140px rgba(201,168,76,0.52); }
+    }
+
+    .victory-trophy { font-size: 3.2rem; line-height: 1; margin-bottom: 14px; }
+
+    .victory-heading {
+      font-size: clamp(1.4rem, 5vw, 1.85rem);
+      color: #c9a84c;
+      text-shadow: 0 0 28px rgba(201,168,76,0.95);
+      letter-spacing: 0.1em;
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
+
+    .victory-sub { font-size: 0.92rem; color: #e0d0b0; margin-bottom: 22px; }
+
+    .victory-score-label { font-size: 0.78rem; color: #9a8060; margin-bottom: 4px; }
+
+    .victory-score-num {
+      font-size: 2.6rem;
+      color: #c9a84c;
+      font-weight: bold;
+      text-shadow: 0 0 18px rgba(201,168,76,0.75);
+      line-height: 1;
+    }
+
+    .victory-score-unit { font-size: 0.88rem; color: #a09070; }
+
+    .victory-divider {
+      width: 55%;
+      margin: 22px auto;
+      border: none;
+      border-top: 1px solid rgba(201,168,76,0.32);
+    }
+
+    .btn-restart {
+      background: linear-gradient(135deg, #7a1a0a, #b02012);
+      border: 2px solid #d83020;
+      color: #f0e0d0;
+      padding: 11px 30px;
+      font-size: 0.93rem;
+      font-family: inherit;
+      letter-spacing: 0.1em;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.18s, box-shadow 0.18s, background 0.18s;
+    }
+
+    .btn-restart:hover {
+      transform: scale(1.07);
+      background: linear-gradient(135deg, #9a2212, #cc2a18);
+      box-shadow: 0 0 22px rgba(200,50,30,0.55);
+    }
+
+    /* =============================================
+       Confetti Canvas
+    ============================================= */
+    #confettiCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 650;
+    }
+
+    /* =============================================
+       Touch Drag Ghost
+    ============================================= */
+    #touchGhost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 900;
+      display: none;
+    }
+
+    /* =============================================
+       Responsive — 手機版 (≤700px)
+       上方：時代卡格 / 下方：事件卡橫向捲動
+    ============================================= */
+    @media (max-width: 700px) {
+      .game-area {
+        flex-direction: column;
+        overflow: visible;
+      }
+
+      .periods-section {
+        flex: none;
+        overflow: visible;
+        border-right: none;
+        border-bottom: 1px solid rgba(201,168,76,0.28);
+        padding: 11px;
+      }
+
+      .events-section {
+        flex: none;
+        max-width: none;
+        padding: 11px;
+        overflow: visible;
+      }
+
+      .events-pool {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: visible;
+        flex: none;
+        padding-bottom: 8px;
+      }
+
+      .events-pool::-webkit-scrollbar { height: 3px; width: auto; }
+
+      .event-card {
+        min-width: 128px;
+        flex-direction: column;
+        text-align: center;
+        padding: 9px 7px;
+        gap: 5px;
+        align-items: center;
+      }
+
+      .event-icon { font-size: 1.55rem; }
+      .event-text-ja { font-size: 0.72rem; }
+      .event-text-zh { font-size: 0.58rem; }
+    }
+
+    @media (max-width: 420px) {
+      .periods-grid { grid-template-columns: 1fr; }
+      .event-card { min-width: 112px; }
+    }
+
+    .map-back-btn {
+      position: fixed;
+      left: 16px;
+      top: 16px;
+      z-index: 50;
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 1px solid rgba(255, 231, 162, .7);
+      border-radius: 8px;
+      color: #fff7df;
+      background: rgba(20, 22, 30, .86);
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .28);
+    }
+  </style>
+</head>
+<body>
+<a class="map-back-btn" href="../大冒險地圖/index.html">← 回到大地圖</a>
+
+<!-- ── Feedback Toast ── -->
+<div class="feedback-toast" id="feedbackToast"></div>
+
+<!-- ── Confetti Canvas ── -->
+<canvas id="confettiCanvas"></canvas>
+
+<!-- ── Touch Drag Ghost（手機拖曳殘影） ── -->
+<div id="touchGhost"></div>
+
+<!-- ── Victory Overlay（過關彈窗） ── -->
+<div class="victory-overlay" id="victoryOverlay">
+  <div class="victory-box">
+    <div class="victory-trophy">🎌🏆🎌</div>
+    <div class="victory-heading">クリア！<br>よくできました！</div>
+    <div class="victory-sub">完成！全部配對正確！</div>
+    <div class="victory-score-label">総試行回数 ／ 總嘗試次數</div>
+    <div class="victory-score-num" id="victoryNum">0</div>
+    <div class="victory-score-unit">回</div>
+    <hr class="victory-divider">
+    <button class="btn-restart" id="restartBtn">もう一度 ／ 再玩一次</button>
+  </div>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-title">日本時代配對ゲーム</div>
+  <div class="header-subtitle">事件や文化を正しい時代にドラッグしましょう</div>
+  <div class="gold-line"></div>
+</header>
+
+<!-- ── Stats Bar ── -->
+<div class="stats-bar">
+  <div class="stat-item">試行回数 ／ 嘗試次數：<strong id="attemptsDisplay">0</strong></div>
+  <div class="stat-item">正解 ／ 已完成：<strong id="correctDisplay">0</strong> ／ <strong id="totalDisplay">18</strong></div>
+</div>
+
+<!-- ── Instructions ── -->
+<div class="instructions">
+  右のカードを正しい時代にドラッグしてください。／ 請將右側事件卡拖曳到正確的日本時代中。
+</div>
+
+<!-- ── Game Area ── -->
+<div class="game-area" id="gameArea">
+
+  <!-- Left: 時代卡格區 -->
+  <div class="periods-section" id="periodsSection">
+    <div class="section-title">◆ 日本の時代 ／ 日本時代 ◆</div>
+    <div class="periods-grid" id="periodsGrid"></div>
+  </div>
+
+  <!-- Right: 事件卡區 -->
+  <div class="events-section" id="eventsSection">
+    <div class="section-title">◆ 事件・文化 ／ 事件與文化 ◆</div>
+    <div class="events-pool" id="eventsPool"></div>
+  </div>
+
+</div>
+
+<script>
+/* =============================================
+   ★ 題目資料 ─ 教師可在此直接修改題目內容 ★
+
+   periods 欄位說明：
+     id       : 識別碼（整數，從 1 開始）
+     name_ja  : 日文時代名稱
+     name_zh  : 中文時代名稱
+     hint     : 時代特色提示（日文）
+
+   events 欄位說明：
+     id        : 識別碼（字串，如 "e1"）
+     period_id : 對應時代 id（必須與 PERIODS 中的 id 相同）
+     text_ja   : 日文事件／文化名稱
+     text_zh   : 中文說明
+     icon      : Emoji 圖示
+   ============================================= */
+
+const PERIODS = [
+  { id: 1, name_ja: "縄文時代", name_zh: "繩文時代", hint: "狩猟・採集・土器文化" },
+  { id: 2, name_ja: "奈良時代", name_zh: "奈良時代", hint: "平城京と仏教文化" },
+  { id: 3, name_ja: "平安時代", name_zh: "平安時代", hint: "貴族文化とかな文学" },
+  { id: 4, name_ja: "鎌倉時代", name_zh: "鎌倉時代", hint: "武士政権の始まり" },
+  { id: 5, name_ja: "江戸時代", name_zh: "江戶時代", hint: "幕藩体制と町人文化" },
+  { id: 6, name_ja: "明治時代", name_zh: "明治時代", hint: "近代化と文明開化" }
+];
+
+const EVENTS = [
+  { id: "e1",  period_id: 1, text_ja: "縄文土器",       text_zh: "繩文土器",       icon: "🏺" },
+  { id: "e2",  period_id: 1, text_ja: "竪穴住居",       text_zh: "豎穴式住居",     icon: "🏠" },
+  { id: "e3",  period_id: 1, text_ja: "狩猟・採集生活",  text_zh: "狩獵與採集生活",  icon: "🌰" },
+  { id: "e4",  period_id: 2, text_ja: "平城京",         text_zh: "平城京",         icon: "🏯" },
+  { id: "e5",  period_id: 2, text_ja: "東大寺の大仏",    text_zh: "東大寺大佛",     icon: "🙏" },
+  { id: "e6",  period_id: 2, text_ja: "律令制度",       text_zh: "律令制度",       icon: "📜" },
+  { id: "e7",  period_id: 3, text_ja: "平安京",         text_zh: "平安京",         icon: "🌸" },
+  { id: "e8",  period_id: 3, text_ja: "源氏物語",       text_zh: "源氏物語",       icon: "📖" },
+  { id: "e9",  period_id: 3, text_ja: "かな文字の発達",  text_zh: "假名文字的發展",  icon: "🖌️" },
+  { id: "e10", period_id: 4, text_ja: "鎌倉幕府",       text_zh: "鎌倉幕府",       icon: "⚔️" },
+  { id: "e11", period_id: 4, text_ja: "源頼朝",         text_zh: "源賴朝",         icon: "👤" },
+  { id: "e12", period_id: 4, text_ja: "御恩と奉公",     text_zh: "御恩與奉公",     icon: "🤝" },
+  { id: "e13", period_id: 5, text_ja: "江戸幕府",       text_zh: "江戶幕府",       icon: "🏯" },
+  { id: "e14", period_id: 5, text_ja: "鎖国",           text_zh: "鎖國",           icon: "🚪" },
+  { id: "e15", period_id: 5, text_ja: "浮世絵",         text_zh: "浮世繪",         icon: "🎨" },
+  { id: "e16", period_id: 6, text_ja: "明治維新",       text_zh: "明治維新",       icon: "🌅" },
+  { id: "e17", period_id: 6, text_ja: "文明開化",       text_zh: "文明開化",       icon: "🚂" },
+  { id: "e18", period_id: 6, text_ja: "廃藩置県",       text_zh: "廢藩置縣",       icon: "🗾" }
+];
+
+/* =============================================
+   遊戲狀態
+   ============================================= */
+let attempts     = 0;     // 累計嘗試次數
+let correctCount = 0;     // 正確配對數
+let activeDragId = null;  // Desktop DnD 中的事件卡 id
+
+// 觸控拖曳狀態
+const tState = { active: false, eventId: null, offX: 0, offY: 0 };
+
+/* =============================================
+   工具：Fisher-Yates 隨機排序
+   ============================================= */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* =============================================
+   渲染：時代卡格
+   ============================================= */
+function renderPeriods() {
+  const grid = document.getElementById('periodsGrid');
+  grid.innerHTML = '';
+
+  PERIODS.forEach(p => {
+    // 外層卡片
+    const card = document.createElement('div');
+    card.className = 'period-card';
+
+    // 標題區
+    const header = document.createElement('div');
+    header.className = 'period-header';
+    header.innerHTML = `
+      <div class="period-name-ja">${p.name_ja}</div>
+      <div class="period-name-zh">${p.name_zh}</div>
+      <div class="period-hint">${p.hint}</div>
+    `;
+
+    // 掉落區
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone';
+    zone.dataset.periodId = p.id;
+    zone.innerHTML = '<span class="drop-hint">ドラッグ &amp; ドロップ</span>';
+
+    // Desktop DnD 事件
+    zone.addEventListener('dragover',  onDragOver);
+    zone.addEventListener('dragleave', onDragLeave);
+    zone.addEventListener('drop',      onDrop);
+
+    card.appendChild(header);
+    card.appendChild(zone);
+    grid.appendChild(card);
+  });
+}
+
+/* =============================================
+   渲染：事件卡（隨機順序）
+   ============================================= */
+function renderEvents(list) {
+  const pool = document.getElementById('eventsPool');
+  pool.innerHTML = '';
+  list.forEach(ev => pool.appendChild(buildCard(ev)));
+}
+
+function buildCard(ev) {
+  const card = document.createElement('div');
+  card.className = 'event-card';
+  card.id = `card-${ev.id}`;
+  card.dataset.eventId  = ev.id;
+  card.dataset.periodId = ev.period_id;
+  card.draggable = true;
+
+  card.innerHTML = `
+    <div class="event-icon">${ev.icon}</div>
+    <div>
+      <div class="event-text-ja">${ev.text_ja}</div>
+      <div class="event-text-zh">${ev.text_zh}</div>
+    </div>
+  `;
+
+  // Desktop DnD
+  card.addEventListener('dragstart', onDragStart);
+  card.addEventListener('dragend',   onDragEnd);
+
+  // Mobile Touch DnD
+  card.addEventListener('touchstart', onTouchStart, { passive: false });
+  card.addEventListener('touchmove',  onTouchMove,  { passive: false });
+  card.addEventListener('touchend',   onTouchEnd,   { passive: false });
+
+  return card;
+}
+
+/* =============================================
+   Desktop Drag & Drop 事件
+   ============================================= */
+function onDragStart(e) {
+  const card = e.currentTarget;
+  if (card.classList.contains('correct')) { e.preventDefault(); return; }
+  activeDragId = card.dataset.eventId;
+  card.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', activeDragId);
+}
+
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  activeDragId = null;
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  // 避免進入子元素時觸發假 leave
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  const zone = e.currentTarget;
+  zone.classList.remove('drag-over');
+  const eid = e.dataTransfer.getData('text/plain') || activeDragId;
+  if (!eid) return;
+  processMatch(eid, parseInt(zone.dataset.periodId), zone);
+}
+
+/* =============================================
+   Mobile Touch Drag 事件
+   ============================================= */
+function onTouchStart(e) {
+  const card = e.currentTarget;
+  if (card.classList.contains('correct')) return;
+
+  const t    = e.touches[0];
+  const rect = card.getBoundingClientRect();
+
+  tState.active  = true;
+  tState.eventId = card.dataset.eventId;
+  tState.offX    = t.clientX - rect.left;
+  tState.offY    = t.clientY - rect.top;
+
+  // 建立視覺殘影（複製卡片內容 + 套用 event-card 樣式）
+  const ghost = document.getElementById('touchGhost');
+  ghost.className = 'event-card';
+  ghost.style.cssText = [
+    'position:fixed',
+    'pointer-events:none',
+    'z-index:900',
+    'display:flex',
+    `width:${rect.width}px`,
+    `left:${t.clientX - tState.offX}px`,
+    `top:${t.clientY - tState.offY}px`,
+    'opacity:0.84',
+    'transform:scale(1.06) rotate(1.2deg)',
+    'transition:none'
+  ].join(';');
+  ghost.innerHTML = card.innerHTML;
+
+  card.style.opacity = '0.32';
+  e.preventDefault();
+}
+
+function onTouchMove(e) {
+  if (!tState.active) return;
+  const t = e.touches[0];
+  const ghost = document.getElementById('touchGhost');
+  ghost.style.left = (t.clientX - tState.offX) + 'px';
+  ghost.style.top  = (t.clientY - tState.offY) + 'px';
+  e.preventDefault();
+}
+
+function onTouchEnd(e) {
+  if (!tState.active) return;
+
+  const t = e.changedTouches[0];
+
+  // 隱藏殘影
+  const ghost = document.getElementById('touchGhost');
+  ghost.style.display = 'none';
+
+  // 恢復原卡透明度
+  const orig = document.getElementById(`card-${tState.eventId}`);
+  if (orig) orig.style.opacity = '';
+
+  // 找出觸控點下方的掉落區
+  const zone = getZoneAt(t.clientX, t.clientY);
+  if (zone) processMatch(tState.eventId, parseInt(zone.dataset.periodId), zone);
+
+  tState.active  = false;
+  tState.eventId = null;
+  e.preventDefault();
+}
+
+// 根據座標找對應的掉落區
+function getZoneAt(x, y) {
+  for (const z of document.querySelectorAll('.drop-zone')) {
+    const r = z.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return z;
+  }
+  return null;
+}
+
+/* =============================================
+   配對判斷核心邏輯
+   ============================================= */
+function processMatch(eventId, targetPeriodId, zone) {
+  const ev   = EVENTS.find(e => e.id === eventId);
+  const card = document.getElementById(`card-${eventId}`);
+  if (!ev || !card || card.classList.contains('correct')) return;
+
+  // 每次拖曳放置都計算一次嘗試
+  attempts++;
+  document.getElementById('attemptsDisplay').textContent = attempts;
+
+  if (ev.period_id === targetPeriodId) {
+    onCorrect(ev, card, zone);
+  } else {
+    onWrong(card);
+  }
+}
+
+// ✅ 正確配對
+function onCorrect(ev, card, zone) {
+  correctCount++;
+  document.getElementById('correctDisplay').textContent = correctCount;
+
+  // 鎖定並隱藏原卡（從右側事件池消失）
+  card.classList.add('correct');
+  card.draggable = false;
+
+  // 隱藏掉落區提示文字
+  const hint = zone.querySelector('.drop-hint');
+  if (hint) hint.style.display = 'none';
+
+  // 在掉落區加入縮圖卡片
+  const placed = document.createElement('div');
+  placed.className = 'placed-card';
+  placed.innerHTML = `<span class="placed-icon">${ev.icon}</span><span>${ev.text_ja}</span><span class="placed-check">✓</span>`;
+  zone.appendChild(placed);
+
+  showToast('正解！✓', 'correct');
+
+  // 全部完成 → 過關
+  if (correctCount >= EVENTS.length) setTimeout(showVictory, 750);
+}
+
+// ❌ 錯誤配對
+function onWrong(card) {
+  card.classList.add('shake', 'flash-error');
+  setTimeout(() => card.classList.remove('shake', 'flash-error'), 420);
+  showToast('もう一度考えてみよう', 'wrong');
+}
+
+/* =============================================
+   UI 輔助
+   ============================================= */
+let toastTimer = null;
+function showToast(msg, type) {
+  const el = document.getElementById('feedbackToast');
+  el.textContent = msg;
+  el.className   = `feedback-toast type-${type}`;
+  void el.offsetWidth;  // force reflow 觸發動畫
+  el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), 1700);
+}
+
+function showVictory() {
+  localStorage.setItem('cert_dynasty', 'true');
+  document.getElementById('victoryNum').textContent = attempts;
+  document.getElementById('victoryOverlay').classList.add('active');
+  launchConfetti();
+}
+
+/* =============================================
+   Confetti 彩紙動畫（Canvas）
+   ============================================= */
+let rafId = null;
+const CONF_COLORS = ['#c9a84c','#e8d5a3','#c9240f','#f0e6d3','#50ba50','#fff5cc','#ff6b35','#ffffff'];
+
+function launchConfetti() {
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx    = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const particles = Array.from({ length: 110 }, () => ({
+    x:     Math.random() * canvas.width,
+    y:     -10 - Math.random() * 250,
+    w:     Math.random() * 10 + 4,
+    h:     Math.random() * 6  + 3,
+    col:   CONF_COLORS[Math.floor(Math.random() * CONF_COLORS.length)],
+    vy:    Math.random() * 3.2 + 1.8,
+    vx:    (Math.random() - 0.5) * 2.2,
+    rot:   Math.random() * 360,
+    vrot:  (Math.random() - 0.5) * 7,
+    alpha: 1
+  }));
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    particles.forEach(p => {
+      p.x   += p.vx;
+      p.y   += p.vy;
+      p.rot += p.vrot;
+      if (p.y > canvas.height * 0.82) p.alpha -= 0.035;
+      if (p.alpha <= 0) return;
+      alive = true;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.fillStyle   = p.col;
+      ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+    if (alive) rafId = requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(draw);
+}
+
+/* =============================================
+   遊戲初始化 & 重置
+   ============================================= */
+function initGame() {
+  attempts     = 0;
+  correctCount = 0;
+  activeDragId = null;
+
+  document.getElementById('attemptsDisplay').textContent = '0';
+  document.getElementById('correctDisplay').textContent  = '0';
+  document.getElementById('totalDisplay').textContent    = EVENTS.length;
+
+  renderPeriods();
+  renderEvents(shuffle(EVENTS));  // 每次開始都隨機排序
+}
+
+function restartGame() {
+  // 隱藏過關畫面
+  document.getElementById('victoryOverlay').classList.remove('active');
+
+  // 停止並清除彩紙
+  if (rafId) {
+    cancelAnimationFrame(rafId);
+    const c = document.getElementById('confettiCanvas');
+    c.getContext('2d').clearRect(0, 0, c.width, c.height);
+  }
+
+  initGame();
+}
+
+document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+// 頁面載入後啟動遊戲
+initGame();
+</script>
+</body>
+</html>

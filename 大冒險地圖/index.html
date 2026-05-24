@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>大冒險地圖</title>
+  <style>
+    :root {
+      --ink: #fff7df;
+      --muted: #dbe4f0;
+      --gold: #facc15;
+      --green: #22c55e;
+      --red: #ef4444;
+      --shadow: rgba(0, 0, 0, .42);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+      background: #0f172a;
+      overflow: hidden;
+    }
+
+    button {
+      min-height: 42px;
+      border: 0;
+      border-radius: var(--radius);
+      color: #111827;
+      background: linear-gradient(180deg, #fde68a, #f59e0b);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 7px 0 rgba(0,0,0,.28), 0 14px 26px var(--shadow);
+      transition: transform .16s ease, filter .16s ease;
+    }
+
+    button:hover,
+    button:focus-visible {
+      transform: translateY(-2px);
+      filter: brightness(1.06);
+      outline: 2px solid rgba(250,204,21,.75);
+      outline-offset: 3px;
+    }
+
+    .cover {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      background: #020617;
+      cursor: pointer;
+      transition: opacity .7s ease, visibility .7s ease;
+    }
+
+    .cover.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .map-screen {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100vw;
+      height: 100vh;
+      padding: 18px;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(56,189,248,.16), transparent 22rem),
+        radial-gradient(circle at 85% 16%, rgba(250,204,21,.14), transparent 18rem),
+        #0f172a;
+    }
+
+    .map-wrap {
+      position: relative;
+      width: min(100%, calc(100vh * var(--map-ratio, 1.777)));
+      height: min(100%, calc(100vw / var(--map-ratio, 1.777)));
+      display: grid;
+      place-items: center;
+      filter: drop-shadow(0 24px 34px rgba(0,0,0,.38));
+    }
+
+    .map-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .top-info {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: var(--radius);
+      background: rgba(15, 23, 42, .78);
+      box-shadow: 0 12px 28px var(--shadow);
+      backdrop-filter: blur(4px);
+    }
+
+    .owned {
+      color: #fff3b0;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .clear-btn {
+      min-height: 38px;
+      padding: 0 12px;
+      color: #fff;
+      background: linear-gradient(180deg, #64748b, #334155);
+      box-shadow: 0 5px 0 rgba(0,0,0,.26), 0 10px 20px var(--shadow);
+    }
+
+    .hotspot {
+      position: absolute;
+      border-radius: 16px;
+      cursor: pointer;
+      background: rgba(255,255,255,0);
+      transition: box-shadow .18s ease, background .18s ease, transform .18s ease;
+    }
+
+    .hotspot:hover,
+    .hotspot:focus-visible {
+      background: rgba(255, 245, 180, .08);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.18), 0 0 34px rgba(250,204,21,.55);
+      transform: scale(1.015);
+      outline: none;
+    }
+
+    /* 百分比座標跟著地圖縮放，已對準四個牌匾。 */
+    .hotspot-dynasty { left: 7.2%; top: 34.8%; width: 17%; height: 10%; }
+    .hotspot-idiom { left: 76.8%; top: 36.7%; width: 16.8%; height: 10.2%; }
+    .hotspot-warrior { left: 7.3%; top: 83.2%; width: 16.8%; height: 9.6%; }
+    .hotspot-gate { left: 40%; top: 64.6%; width: 17.7%; height: 9.8%; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(2, 6, 23, .72);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal.show { display: grid; }
+
+    .door {
+      width: min(820px, 100%);
+      max-height: min(92vh, 820px);
+      overflow: auto;
+      padding: 22px;
+      border: 2px solid rgba(250,204,21,.55);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.045) 2px, transparent 2px) 0 0 / 42px 100%,
+        linear-gradient(180deg, #5b361f, #2d1b13);
+      box-shadow: 0 28px 70px rgba(0,0,0,.52), 0 0 42px rgba(250,204,21,.18);
+    }
+
+    .door-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .door h2 {
+      margin: 0;
+      font-size: clamp(1.7rem, 4vw, 2.7rem);
+      text-shadow: 0 4px 0 rgba(0,0,0,.32);
+    }
+
+    .close-btn {
+      width: 46px;
+      min-height: 42px;
+      color: #fff;
+      background: linear-gradient(180deg, #ef4444, #991b1b);
+    }
+
+    .slots {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .slot {
+      display: grid;
+      place-items: center;
+      gap: 8px;
+      min-height: 150px;
+      padding: 12px;
+      border: 3px dashed rgba(255,255,255,.25);
+      border-radius: var(--radius);
+      background: rgba(0,0,0,.2);
+      text-align: center;
+      transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    }
+
+    .slot.over {
+      border-color: var(--gold);
+      background: rgba(250,204,21,.13);
+      transform: translateY(-2px);
+    }
+
+    .slot.filled {
+      border-style: solid;
+      border-color: var(--green);
+      background: rgba(34,197,94,.16);
+    }
+
+    .slot.wrong {
+      animation: wrong .28s ease;
+      border-color: var(--red);
+      background: rgba(239,68,68,.2);
+    }
+
+    .slot-label {
+      color: #ffe8a3;
+      font-weight: 900;
+    }
+
+    .slot-placeholder {
+      color: rgba(255,255,255,.62);
+      font-size: .92rem;
+    }
+
+    .bag {
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: var(--radius);
+      background: rgba(15, 23, 42, .45);
+    }
+
+    .bag-title {
+      margin: 0 0 12px;
+      color: #fff3b0;
+      font-weight: 900;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      min-height: 80px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 58px;
+      padding: 0 14px;
+      border: 2px solid rgba(250,204,21,.62);
+      border-radius: var(--radius);
+      color: #111827;
+      background: linear-gradient(180deg, #fef3c7, #facc15);
+      font-weight: 1000;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      box-shadow: 0 7px 0 rgba(0,0,0,.2), 0 12px 22px rgba(0,0,0,.25);
+    }
+
+    .badge.placed {
+      cursor: default;
+      border-color: var(--green);
+      background: linear-gradient(180deg, #bbf7d0, #4ade80);
+    }
+
+    .badge.dragging { opacity: .45; }
+    .empty-bag { color: var(--muted); line-height: 1.6; }
+
+    .win {
+      display: none;
+      text-align: center;
+      padding: 28px 16px;
+    }
+
+    .win.show { display: block; }
+    .gate-game.hidden { display: none; }
+
+    .win h2 {
+      margin: 0 0 12px;
+      font-size: clamp(2.2rem, 6vw, 4rem);
+      color: #fff3b0;
+      text-shadow: 0 5px 0 rgba(0,0,0,.3);
+    }
+
+    .again-btn {
+      margin-top: 16px;
+      padding: 0 24px;
+    }
+
+    .touch-ghost {
+      position: fixed;
+      z-index: 40;
+      pointer-events: none;
+      opacity: .92;
+      transform: translate(-50%, -50%);
+    }
+
+    @keyframes wrong {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      50% { transform: translateX(8px); }
+      75% { transform: translateX(-5px); }
+    }
+
+    @media (max-width: 760px) {
+      .map-screen { padding: 8px; }
+      .top-info {
+        right: 10px;
+        top: 10px;
+        gap: 6px;
+        padding: 8px;
+      }
+      .owned { font-size: .92rem; }
+      .clear-btn { min-height: 34px; padding: 0 9px; font-size: .88rem; }
+      .slots { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <section id="cover" class="cover" aria-label="開場封面">
+    <img src="cover.png" alt="大冒險封面" />
+  </section>
+
+  <main class="map-screen">
+    <div class="top-info">
+      <div class="owned">持有 <span id="ownedCount">0</span> / 3</div>
+      <button id="clearBtn" class="clear-btn" type="button">🔄 清除進度</button>
+    </div>
+
+    <div id="mapWrap" class="map-wrap">
+      <img id="mapImg" class="map-img" src="map-bg.png" alt="大冒險地圖" />
+
+      <div class="hotspot hotspot-dynasty" role="button" tabindex="0" aria-label="前往朝代配對"></div>
+      <div class="hotspot hotspot-idiom" role="button" tabindex="0" aria-label="前往成語填字"></div>
+      <div class="hotspot hotspot-warrior" role="button" tabindex="0" aria-label="前往打怪 RPG"></div>
+      <div class="hotspot hotspot-gate" role="button" tabindex="0" aria-label="打開通關大門"></div>
+
+    </div>
+  </main>
+
+  <div id="gateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+    <div class="door">
+      <div class="door-head">
+        <h2 id="gateTitle">🔒 通關大門</h2>
+        <button id="closeBtn" class="close-btn" type="button" aria-label="關閉">×</button>
+      </div>
+
+      <div id="gateGame" class="gate-game">
+        <section id="slots" class="slots" aria-label="憑證凹槽"></section>
+        <section class="bag">
+          <p class="bag-title">背包欄</p>
+          <div id="badges" class="badges"></div>
+        </section>
+      </div>
+
+      <section id="winPanel" class="win">
+        <h2>🏆 冒險完成！</h2>
+        <p>總冒險時長：<strong id="totalTime">00 分 00 秒</strong></p>
+        <button id="againBtn" class="again-btn" type="button">再次冒險</button>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const CERTS = [
+      { id: "dynasty", key: "cert_dynasty", label: "朝代", badge: "朝代之印", icon: "🎴", href: "../示範1_日本時代配對/index.html" },
+      { id: "idiom", key: "cert_idiom", label: "成語", badge: "成語之印", icon: "📝", href: "../示範2_日本史語彙填字/index.html" },
+      { id: "warrior", key: "cert_warrior", label: "勇者", badge: "勇者之印", icon: "⚔️", href: "../示範3_打怪RPG/index.html" }
+    ];
+
+    const START_KEY = "adventure_start";
+    const COVER_KEY = "adventure_cover_seen";
+    const $ = (id) => document.getElementById(id);
+    let placed = {};
+    let draggedId = "";
+    let touchState = null;
+
+    function init() {
+      if (!localStorage.getItem(START_KEY)) {
+        localStorage.setItem(START_KEY, String(Date.now()));
+      }
+      if (sessionStorage.getItem(COVER_KEY) === "true") {
+        $("cover").classList.add("hidden");
+      }
+      setupMapRatio();
+      updateProgress();
+      bindHotspots();
+    }
+
+    function setupMapRatio() {
+      const img = $("mapImg");
+      const applyRatio = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          $("mapWrap").style.setProperty("--map-ratio", img.naturalWidth / img.naturalHeight);
+        }
+      };
+      img.addEventListener("load", applyRatio);
+      applyRatio();
+    }
+
+    function hideCover() {
+      sessionStorage.setItem(COVER_KEY, "true");
+      $("cover").classList.add("hidden");
+    }
+
+    function hasCert(cert) {
+      return localStorage.getItem(cert.key) === "true";
+    }
+
+    function updateProgress() {
+      const owned = CERTS.filter(hasCert);
+      $("ownedCount").textContent = owned.length;
+    }
+
+    function bindHotspots() {
+      document.querySelector(".hotspot-dynasty").addEventListener("click", () => goStage("dynasty"));
+      document.querySelector(".hotspot-idiom").addEventListener("click", () => goStage("idiom"));
+      document.querySelector(".hotspot-warrior").addEventListener("click", () => goStage("warrior"));
+      document.querySelector(".hotspot-gate").addEventListener("click", openGate);
+      document.querySelectorAll(".hotspot").forEach((spot) => {
+        spot.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            spot.click();
+          }
+        });
+      });
+    }
+
+    function goStage(id) {
+      const cert = CERTS.find((item) => item.id === id);
+      if (cert) window.location.href = cert.href;
+    }
+
+    function openGate() {
+      placed = {};
+      $("gateModal").classList.add("show");
+      $("gateGame").classList.remove("hidden");
+      $("winPanel").classList.remove("show");
+      renderSlots();
+      renderBadges();
+    }
+
+    function closeGate() {
+      $("gateModal").classList.remove("show");
+    }
+
+    function renderSlots() {
+      $("slots").innerHTML = "";
+      CERTS.forEach((cert) => {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.dataset.certId = cert.id;
+        slot.innerHTML = `<div class="slot-label">${cert.label}</div><div class="slot-placeholder">拖曳憑證到這裡</div>`;
+        slot.addEventListener("dragover", onDragOver);
+        slot.addEventListener("dragleave", onDragLeave);
+        slot.addEventListener("drop", onDrop);
+        $("slots").appendChild(slot);
+      });
+    }
+
+    function renderBadges() {
+      $("badges").innerHTML = "";
+      const owned = CERTS.filter(hasCert);
+      if (!owned.length) {
+        $("badges").innerHTML = `<div class="empty-bag">目前還沒有憑證。可以先挑戰任一關卡，再回來開門。</div>`;
+        return;
+      }
+      owned.forEach((cert) => $("badges").appendChild(createBadge(cert)));
+    }
+
+    function createBadge(cert) {
+      const badge = document.createElement("div");
+      badge.className = "badge";
+      badge.draggable = true;
+      badge.dataset.certId = cert.id;
+      badge.innerHTML = `<span>${cert.icon}</span><span>${cert.badge}</span>`;
+      badge.addEventListener("dragstart", onDragStart);
+      badge.addEventListener("dragend", onDragEnd);
+      badge.addEventListener("pointerdown", onPointerDown);
+      return badge;
+    }
+
+    function onDragStart(event) {
+      if (event.currentTarget.classList.contains("placed")) {
+        event.preventDefault();
+        return;
+      }
+      draggedId = event.currentTarget.dataset.certId;
+      event.dataTransfer.setData("text/plain", draggedId);
+      event.currentTarget.classList.add("dragging");
+    }
+
+    function onDragEnd(event) {
+      event.currentTarget.classList.remove("dragging");
+      document.querySelectorAll(".slot.over").forEach((slot) => slot.classList.remove("over"));
+    }
+
+    function onDragOver(event) {
+      event.preventDefault();
+      event.currentTarget.classList.add("over");
+    }
+
+    function onDragLeave(event) {
+      event.currentTarget.classList.remove("over");
+    }
+
+    function onDrop(event) {
+      event.preventDefault();
+      const slot = event.currentTarget;
+      slot.classList.remove("over");
+      const certId = event.dataTransfer.getData("text/plain") || draggedId;
+      const badge = document.querySelector(`.badge[data-cert-id="${certId}"]`);
+      judgeBadge(badge, slot);
+    }
+
+    function judgeBadge(badge, slot) {
+      if (!badge || !slot || badge.classList.contains("placed")) return;
+      const certId = badge.dataset.certId;
+      if (certId === slot.dataset.certId) {
+        slot.classList.add("filled");
+        const placeholder = slot.querySelector(".slot-placeholder");
+        if (placeholder) placeholder.remove();
+        badge.classList.add("placed");
+        badge.draggable = false;
+        slot.appendChild(badge);
+        placed[certId] = true;
+        if (CERTS.every((cert) => placed[cert.id])) showWin();
+      } else {
+        slot.classList.add("wrong");
+        window.setTimeout(() => slot.classList.remove("wrong"), 300);
+      }
+    }
+
+    function onPointerDown(event) {
+      const badge = event.currentTarget;
+      if (event.pointerType === "mouse" || badge.classList.contains("placed")) return;
+      event.preventDefault();
+      const rect = badge.getBoundingClientRect();
+      const ghost = badge.cloneNode(true);
+      ghost.classList.add("touch-ghost");
+      ghost.style.left = `${event.clientX}px`;
+      ghost.style.top = `${event.clientY}px`;
+      ghost.style.width = `${rect.width}px`;
+      ghost.style.height = `${rect.height}px`;
+      document.body.appendChild(ghost);
+      badge.classList.add("dragging");
+      touchState = { badge, ghost, pointerId: event.pointerId, activeSlot: null };
+      badge.setPointerCapture(event.pointerId);
+      badge.addEventListener("pointermove", onPointerMove);
+      badge.addEventListener("pointerup", onPointerUp);
+      badge.addEventListener("pointercancel", onPointerUp);
+    }
+
+    function onPointerMove(event) {
+      if (!touchState || event.pointerId !== touchState.pointerId) return;
+      touchState.ghost.style.left = `${event.clientX}px`;
+      touchState.ghost.style.top = `${event.clientY}px`;
+      touchState.ghost.style.display = "none";
+      const below = document.elementFromPoint(event.clientX, event.clientY);
+      touchState.ghost.style.display = "";
+      const slot = below && below.closest(".slot");
+      if (touchState.activeSlot && touchState.activeSlot !== slot) touchState.activeSlot.classList.remove("over");
+      if (slot) slot.classList.add("over");
+      touchState.activeSlot = slot;
+    }
+
+    function onPointerUp(event) {
+      if (!touchState || event.pointerId !== touchState.pointerId) return;
+      const { badge, ghost, activeSlot } = touchState;
+      badge.releasePointerCapture(event.pointerId);
+      badge.removeEventListener("pointermove", onPointerMove);
+      badge.removeEventListener("pointerup", onPointerUp);
+      badge.removeEventListener("pointercancel", onPointerUp);
+      ghost.remove();
+      badge.classList.remove("dragging");
+      if (activeSlot) {
+        activeSlot.classList.remove("over");
+        judgeBadge(badge, activeSlot);
+      }
+      touchState = null;
+    }
+
+    function showWin() {
+      $("gateGame").classList.add("hidden");
+      $("winPanel").classList.add("show");
+      const started = Number(localStorage.getItem(START_KEY)) || Date.now();
+      const seconds = Math.max(0, Math.floor((Date.now() - started) / 1000));
+      const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+      const ss = String(seconds % 60).padStart(2, "0");
+      $("totalTime").textContent = `${mm} 分 ${ss} 秒`;
+    }
+
+    function clearProgress() {
+      [...CERTS.map((cert) => cert.key), START_KEY].forEach((key) => localStorage.removeItem(key));
+      sessionStorage.removeItem(COVER_KEY);
+      localStorage.setItem(START_KEY, String(Date.now()));
+      updateProgress();
+      closeGate();
+      $("cover").classList.remove("hidden");
+    }
+
+    $("cover").addEventListener("click", hideCover);
+    $("closeBtn").addEventListener("click", closeGate);
+    $("clearBtn").addEventListener("click", clearProgress);
+    $("againBtn").addEventListener("click", clearProgress);
+    $("gateModal").addEventListener("click", (event) => {
+      if (event.target.id === "gateModal") closeGate();
+    });
+
+    init();
+  </script>
+</body>
+</html>
